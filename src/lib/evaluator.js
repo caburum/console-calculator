@@ -1,88 +1,84 @@
+// todo: make this more performant?
+const mathFunctions = {
+	abs: (x) => Math.abs(x),
+	sin: (rad) => Math.sin(rad),
+	cos: (rad) => Math.cos(rad),
+	tan: (rad) => Math.tan(rad),
+	asin: (x) => Math.asin(x),
+	arcsin: (x) => Math.asin(x),
+	acos: (x) => Math.acos(x),
+	arccos: (x) => Math.acos(x),
+	atan: (x) => Math.atan(x),
+	arctan: (x) => Math.atan(x),
+	log: (x) => Math.log10(x),
+	ln: (x) => Math.log(x),
+	sqrt: (x) => Math.sqrt(x),
+	exp: (x) => Math.exp(x),
+	hypot: (a, b) => Math.hypot(a, b),
+	rad: (deg) => (deg * Math.PI) / 180,
+	deg: (rad) => (rad * 180) / Math.PI,
+	pi: Math.PI,
+	e: Math.E,
+};
+const mathFunctionsJS = Object.entries(mathFunctions)
+	.map(([name, fn]) => `const ${name} = ${fn};`)
+	.join('');
+
 export function evaluateLines(lines) {
-  const results = [];
-  const variables = {}; // Store variables
-  let lastResult = 0; // To keep track of the last result
+	const results = [];
+	const variables = {}; // Store variables
+	let lastResult = undefined; // To keep track of the last result
 
-  // Helper functions for supported math operations and functions
-  const mathFunctions = {
-    abs: (x) => Math.abs(x),
-    sin: (x) => Math.sin(x),
-    cos: (x) => Math.cos(x),
-    tan: (x) => Math.tan(x),
-    asin: (x) => Math.asin(x),
-    acos: (x) => Math.acos(x),
-    atan: (x) => Math.atan(x),
-    log: (x) => Math.log10(x),
-    ln: (x) => Math.log(x),
-    sqrt: (x) => Math.sqrt(x),
-    exp: (x) => Math.exp(x),
-  };
+	for (let line of lines) {
+		line = line.split('//')[0];
+		if (!line) {
+			results.push({ type: 'null', value: undefined });
+			continue;
+		}
+		try {
+			let expression = line.trim();
 
-  for (let line of lines) {
-    line = line.split("//")[0];
-    if (!line) {
-      results.push({ type: "null", value: "" });
-      continue;
-    }
-    try {
-      let expression = line.trim();
+			variables.last = lastResult;
 
-      // Replace `last` keyword with `lastResult`
-      expression = expression.replace(/\blast\b/g, lastResult);
+			// Replace "^" with "**" for exponentiation
+			expression = expression.replace(/\^/g, '**');
 
-      // Replace "^" with "**" for exponentiation
-      expression = expression.replace(/\^/g, "**");
+			if (/^[$_\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}][$_\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}\u200C\u200D\p{Mn}\p{Mc}\p{Nd}\p{Pc}]*\s*=(?![=>])/u.test(expression)) {
+				// todo: add support for "f(x)=x" to "f=(x)=>x" transformation
+				const [varName, varExpression] = expression.split(/=(.+)/);
+				const trimmedName = varName.trim();
+				if (!varExpression) {
+					results.push({ type: 'error', value: `Error: Invalid assignment` });
+					continue;
+				}
 
-      // Parse assignments
-      if (/^[a-zA-Z_]\w*\s*=/.test(expression)) {
-        // Split on the first "="
-        const [varName, varExpression] = expression.split(/=(.+)/);
-        const trimmedName = varName.trim();
-
-        // Evaluate the right-hand side of the assignment without variable replacement
-        const result = evaluateExpression(
-          varExpression.trim(),
-          mathFunctions,
-          variables
-        );
-        variables[trimmedName] = result;
-        lastResult = result;
-        results.push({ type: "result", value: result });
-      } else {
-        // Replace variables in the expression with their values (excluding assignments)
-        for (const [key, value] of Object.entries(variables)) {
-          const varRegex = new RegExp(`\\b${key}\\b`, "g");
-          if (typeof value === "string") {
-            expression = expression.replace(varRegex, JSON.stringify(value));
-          } else {
-            expression = expression.replace(varRegex, value);
-          }
-        }
-
-        // Evaluate as a standalone expression
-        const result = evaluateExpression(expression, mathFunctions, variables);
-        lastResult = result;
-        results.push({ type: "result", value: result });
-      }
-    } catch (error) {
-      results.push({ type: "error", value: `Error: ${error.message}` });
-    }
-  }
-  return results;
+				// Evaluate the right-hand side of the assignment without variable replacement
+				const result = evaluateExpression(varExpression.trim(), variables);
+				variables[trimmedName] = result;
+				lastResult = result;
+				results.push({ type: 'result', value: result });
+			} else {
+				// Evaluate as a standalone expression
+				const result = evaluateExpression(expression, variables);
+				lastResult = result;
+				results.push({ type: 'result', value: result });
+			}
+		} catch (error) {
+			results.push({ type: 'error', value: `Error: ${error.message}` });
+		}
+	}
+	return results;
 }
 
-// Helper to evaluate an expression with math functions and prevent global access
-function evaluateExpression(expression, mathFunctions, variables) {
-  // Create a new function that can access math functions and evaluates the expression
-  return Function(
-    '"use strict"; ' +
-      "const window = undefined; const document = undefined; const fetch = undefined; const alert = undefined; const prompt = undefined;" +
-      Object.entries(mathFunctions)
-        .map(([name, fn]) => `const ${name} = ${fn};`)
-        .join("\n") +
-      Object.keys(variables)
-        .map((key) => `const ${key} = ${JSON.stringify(variables[key])};`)
-        .join("\n") +
-      `return (${expression});`
-  )();
+function evaluateExpression(expression, variables) {
+	// there is no way to prevent full global access from here
+	// https://d0nut.medium.com/why-building-a-sandbox-in-pure-javascript-is-a-fools-errand-d425b77b2899
+	// todo: automatic multiplication insertion?
+	return Function(
+		...Object.keys(variables),
+		`'use strict';
+const window = undefined; const globalThis = undefined; const document = undefined; const fetch = undefined;
+${mathFunctionsJS}
+return ${expression};`
+	)(...Object.values(variables));
 }
