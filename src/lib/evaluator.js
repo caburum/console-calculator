@@ -26,8 +26,8 @@ const mathFunctionsJS = Object.entries(mathFunctions)
 
 export function evaluateLines(lines) {
 	const results = [];
-	const variables = {}; // Store variables
-	let lastResult = undefined; // To keep track of the last result
+	const variables = {};
+	let lastResult = undefined;
 
 	for (let line of lines) {
 		line = line.split('//')[0];
@@ -39,22 +39,29 @@ export function evaluateLines(lines) {
 			let expression = line.trim();
 
 			variables.last = lastResult;
+			variables.ans = lastResult;
 
 			// Replace "^" with "**" for exponentiation
 			expression = expression.replace(/\^/g, '**');
 
-			if (/^[$_\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}][$_\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}\u200C\u200D\p{Mn}\p{Mc}\p{Nd}\p{Pc}]*\s*=(?![=>])/u.test(expression)) {
-				// todo: add support for "f(x)=x" to "f=(x)=>x" transformation
-				const [varName, varExpression] = expression.split(/=(.+)/);
-				const trimmedName = varName.trim();
+			const variableNameRegex = '[$_\\p{Lu}\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}\\p{Nl}][$_\\p{Lu}\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}\\p{Nl}\u200C\u200D\\p{Mn}\\p{Mc}\\p{Nd}\\p{Pc}]*';
+			const variableMatch = new RegExp(`^(${variableNameRegex})\\s*=`, 'u').exec(expression);
+			const functionMatch = new RegExp(`^(${variableNameRegex})\\s*\\((\\s*(?:[\\w\\s=,])*)\\)\\s*=`, 'u').exec(expression);
+
+			if (variableMatch || functionMatch) {
+				let varName = variableMatch?.[1] || functionMatch?.[1],
+					varExpression = expression.substring(variableMatch?.[0].length || functionMatch?.[0].length)?.trim();
+
 				if (!varExpression) {
 					results.push({ type: 'error', value: `Error: Invalid assignment` });
 					continue;
 				}
 
+				if (functionMatch) varExpression = `(${functionMatch[2].trim()}) => ${varExpression}`;
+
 				// Evaluate the right-hand side of the assignment without variable replacement
 				const result = evaluateExpression(varExpression.trim(), variables);
-				variables[trimmedName] = result;
+				variables[varName] = result;
 				lastResult = result;
 				results.push({ type: 'result', value: result });
 			} else {

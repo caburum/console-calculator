@@ -52,6 +52,13 @@
 		document.title = setTitle || 'console calculator';
 	}
 
+	const structureText = (text) =>
+		text
+			.replaceAll(/\r\n/g, '\n')
+			.split('\n')
+			.map((line) => `<div>${line || '<br>'}</div>`)
+			.join('');
+
 	onMount(() => {
 		console.log('%ccc', 'background-color: #8FF; color: black; padding: 8px; border-radius: 6px; font-family: monospace; font-weight: 900;');
 		let preload = localStorage.getItem('window_snapshot');
@@ -61,7 +68,7 @@
 	});
 </script>
 
-<svelte:window onresize={processConsole} />
+<svelte:window on:resize={processConsole} />
 
 <main>
 	<div class="topBar" style="--text: #8FF; --fg: #8FF2">
@@ -94,7 +101,7 @@
 			on:click={() => {
 				if (confirm('Warning: Current content will be cleared, and new content will be evaluated. Only load files you trust.'))
 					loadFileAsText().then((text) => {
-						consoleView.innerText = text;
+						consoleView.innerHTML = structureText(text);
 						processConsole();
 					});
 			}}>load</button
@@ -106,7 +113,7 @@
 		>
 	</div>
 	<div class="consoleArea">
-		<div class="sizeTest" bind:this={sizeTest}>hello</div>
+		<div class="sizeTest" bind:this={sizeTest}></div>
 		<!-- svelte-ignore a11y_autofocus -->
 		<div
 			bind:this={consoleView}
@@ -116,9 +123,9 @@
 
 				// @ts-expect-error
 				const clipboardData = event.clipboardData || window.clipboardData;
-				const pastedText = clipboardData.getData('text/plain');
+				const pastedText = structureText(clipboardData.getData('text/plain'));
 
-				document.execCommand('insertText', false, pastedText);
+				document.execCommand('insertHTML', false, pastedText);
 			}}
 			contenteditable
 			spellcheck="false"
