@@ -45,19 +45,18 @@ export function evaluateLines(lines) {
 			expression = expression.replace(/\^/g, '**');
 
 			const variableNameRegex = '[$_\\p{Lu}\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}\\p{Nl}][$_\\p{Lu}\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}\\p{Nl}\u200C\u200D\\p{Mn}\\p{Mc}\\p{Nd}\\p{Pc}]*';
-			const variableMatch = new RegExp(`^(${variableNameRegex})\\s*=`, 'u').exec(expression);
-			const functionMatch = new RegExp(`^(${variableNameRegex})\\s*\\((\\s*(?:[\\w\\s=,])*)\\)\\s*=`, 'u').exec(expression);
+			const match = new RegExp(`^(${variableNameRegex})(?:\\s*\\((\\s*(?:[\\w\\s=,])*)\\))?\\s*=(?![=>])`, 'u').exec(expression);
 
-			if (variableMatch || functionMatch) {
-				let varName = variableMatch?.[1] || functionMatch?.[1],
-					varExpression = expression.substring(variableMatch?.[0].length || functionMatch?.[0].length)?.trim();
+			if (match) {
+				let varName = match[1],
+					varExpression = expression.substring(match[0].length)?.trim();
 
 				if (!varExpression) {
 					results.push({ type: 'error', value: `Error: Invalid assignment` });
 					continue;
 				}
 
-				if (functionMatch) varExpression = `(${functionMatch[2].trim()}) => ${varExpression}`;
+				if (match?.[2]) varExpression = `(${match[2].trim()}) => ${varExpression}`;
 
 				// Evaluate the right-hand side of the assignment without variable replacement
 				const result = evaluateExpression(varExpression.trim(), variables);
