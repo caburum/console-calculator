@@ -44,6 +44,9 @@
 				if (typeof content.value === 'object' || typeof content.value === 'string') {
 					content.value = JSON.stringify(content.value);
 				}
+				if (typeof content.value === 'number' && content?.scientific) {
+					content.value = content.value.toExponential();
+				}
 				setTitle = content.value;
 			}
 			return { line, x, y, content };
