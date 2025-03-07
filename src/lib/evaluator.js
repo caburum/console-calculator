@@ -109,6 +109,18 @@ const globals = {
 	pi: Math.PI,
 	e: Math.E,
 	c: convertSIPrefix,
+	sum: (...args) => {
+		const numbers = Array.isArray(args[0]) ? args[0] : args;
+		return numbers.reduce((sum, num) => sum + num, 0);
+	},
+	avg: (...args) => {
+		const numbers = Array.isArray(args[0]) ? args[0] : args;
+		return numbers.length === 0 ? 0 : numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
+	},
+	round: (number, decimalPlaces = 0) => {
+		const factor = Math.pow(10, decimalPlaces);
+		return Math.round(number * factor) / factor;
+	},
 };
 
 function evaluateExpression(expression, variables) {
